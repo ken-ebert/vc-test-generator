@@ -1,3 +1,5 @@
 /target
+vc-generator/target
+vp-generator/target
 **/*.rs.bk
 example-1.jsonld
