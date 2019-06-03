@@ -1,0 +1,11 @@
+[package]
+name = "vp-generator"
+version = "0.1.0"
+authors = ["Kenneth Ebert <ken@kindredlearning.com>"]
+edition = "2018"
+
+[dependencies]
+serde_json = "1.0"
+serde = {version = "1.0.90", features = ["derive"]}
+rust-libindy-wrapper = "0.2.13"
+regex = "1"
