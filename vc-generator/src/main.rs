@@ -205,8 +205,11 @@ fn main()  {
 
 
 	// id
-	println!("  \"id\": \"{}\",", schema_json.id);
-	// we die on input parsing if this is not a string.
+	// If present, print it
+	if schema_json.id != "" {
+		println!("  \"id\": \"{}\",", schema_json.id);
+		// we die on input parsing if this is not a string.
+	}
 
 
 	// types
@@ -243,10 +246,9 @@ fn main()  {
 	// is issuer an URI?
 	// word://string/ 
 	// /\w+:(\/?\/?)[^\s]+/
-	//let re = Regex::new(r"(?x)(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})").unwrap(); 
-	//let caps = re.captures("2010-03-14").unwrap();
-	//println!("{}", &caps["year"]);
-	let re = Regex::new(r"(?P<year>\w+):(?P<slashes>/?/?)(?P<site>[^\s]+/)").unwrap(); 
+	//let re = Regex::new(r"(?P<protocol>\w+):(?P<slashes>/?/?)(?P<site>[^\s]+/)").unwrap();
+	//(?<scheme>\w+):(?:(?:(? <url>\/\/[.\w]+)(?:(\/(?<path>[\/\w]+)?)?))|(?:(?<method>\w+):(?<id>\w+))) 
+	let re = Regex::new(r"(?P<scheme>\w+):(?:(?:(?P<url>//[.\w]+)(?:(/(?P<path>[/\w]+)?)?))|(?:(?P<method>\w+):(?P<id>\w+)))").unwrap(); 
 	let caps = re.captures(&schema_json.issuer).unwrap();
 	// FIXME capture the error and handle it.
 	//println!("{}", &caps["year"]);
@@ -470,6 +472,10 @@ fn main()  {
 */
 }
 
+pub fn missing_credential_id() -> String {
+	return String::new();
+}
+
 pub fn missing_expiration_date() -> String {
 	return String::new();
 }
@@ -487,6 +493,7 @@ pub fn missing_credential_schema() -> serde_json::Value {
 struct RawSchema {
 	#[serde(rename = "@context")]
 	context: Vec<serde_json::Value>,
+	#[serde(default = "missing_credential_id")]
 	id: String,
 	#[serde(rename = "type")]
 	credential_type: Vec<String>,

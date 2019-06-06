@@ -21,6 +21,9 @@ use rust_libindy_wrapper::native::Handle;
 use rust_libindy_wrapper::native::wallet;
 use rust_libindy_wrapper::wallet::Wallet;
 
+use CredentialType::SingleType;
+use CredentialType::MultiType;
+
 /*
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
@@ -157,46 +160,105 @@ fn main()  {
 	println!("");
 	println!("  ],");
 
+
 	// presentation id
-	println!("  \"id\": \"{}\",", presentation_json.presentation_id);
-	// we die on input parsing if this is not a string.
+	// If present, print it
+	if presentation_json.presentation_id != "" {
+		println!("  \"id\": \"{}\",", presentation_json.presentation_id);
+		// we die on input parsing if this is not a string.
+	}
+
 
 	// presentation types
 	// start the types section
 	println!("  \"type\": [");
-	// is the context big enough? (at least 2 values)
-	if presentation_json.presentation_type.len() < 1 {
-		panic!("Presentation type empty.");
-	}
-	if presentation_json.presentation_type.len() < 2 {
-		panic!("Presentation type needs at least 2 types.");
-	}
-	let mut need_presentation_type_comma = false;
-    for presentation_type_string in &presentation_json.presentation_type {
-    	if need_presentation_type_comma {
-    		// only print commas in front of 2nd to nth object
-    		println!(",");
-    	} else {
-    		// first type
-    		if presentation_type_string != "VerifiablePresentation" {
+	match presentation_json.presentation_type {
+		Null => {
+			println!("Null");
+			panic!("Empty presentation_type");
+		},
+		Bool(b) => {
+			println!("Bool: {}", b);
+			panic!("Bool in presentation_type");
+		},
+		Number(n) => {
+			println!("Number: {}", n);
+			panic!("Number in presentation_type");
+		},
+	    serde_json::value::Value::String(presentation_type_s) => {
+	    	// We found a string!
+	    	// first type
+    		if presentation_type_s != "VerifiablePresentation" {
 				panic!("Must include \"VerifiablePresentation\" as type.");
 			}
-    	}
-	    print!("    ");
-    	print!("\"{}\"", presentation_type_string);
-	    need_presentation_type_comma = true;
-    }
+			print!("    \"{}\"", presentation_type_s);
+		},
+    	Array(presentation_type_array) => {
+			// is the presentationType big enough? (at least 1 value)
+			if presentation_type_array.len() < 1 {
+				panic!("Presentation type empty.");
+			}
+			let mut need_presentation_type_comma = false;
+    		for presentation_type_string in presentation_type_array {
+    			if need_presentation_type_comma {
+    				// only print commas in front of 2nd to nth object
+    				println!(",");
+    			} else {
+    				// first type
+    				if presentation_type_string != "VerifiablePresentation" {
+						panic!("Must include \"VerifiablePresentation\" as first type.");
+					}
+    			}
+    			print!("    {}", presentation_type_string);
+	    		need_presentation_type_comma = true;
+    		}
+    		println!("");
+		},
+	    Object(_o) => {
+	    	// We found an object	    	
+			panic!("Must include \"VerifiablePresentation\" as type, not an object.");
+		}
+
+/*	    SingleType(presentation_type_s) => {
+	    	// first type
+    		if presentation_type_s != "VerifiablePresentation" {
+				panic!("Must include \"VerifiablePresentation\" as type.");
+			}
+			print!("    \"{}\"", presentation_type_s);
+		},
+	   	MultiType(pa) => {
+			// is the presentationType big enough? (at least 1 value)
+			if pa.len() < 1 {
+				panic!("Presentation type empty.");
+			}
+			let mut need_presentation_type_comma = false;
+    		for presentation_type_string in pa {
+    			if need_presentation_type_comma {
+    				// only print commas in front of 2nd to nth object
+    				println!(",");
+    			} else {
+    				// first type
+    				if presentation_type_string != "VerifiablePresentation" {
+						panic!("Must include \"VerifiablePresentation\" as first type.");
+					}
+    			}
+	    		print!("    ");
+    			print!("\"{}\"", presentation_type_string);
+	    		need_presentation_type_comma = true;
+    		}
+    		println!("");
+		},*/
+	};
 	// end the types section
-	println!("");
 	println!("  ],");
+
 
 	// start the embedded credentials
 	println!("  \"verifiableCredential\": [");
 
 
-
-
 	// Start the credential
+	// ******************************************************************************************************
 	println!("    {{");
 
 
@@ -268,9 +330,11 @@ fn main()  {
 	println!("    ],");
 
 
-	// id
-	println!("    \"id\": \"{}\",", schema_json.id);
-	// we die on input parsing if this is not a string.
+	// If present, print it
+	if schema_json.id != "" {
+		println!("  \"id\": \"{}\",", schema_json.id);
+		// we die on input parsing if this is not a string.
+	}
 
 
 	// types
@@ -310,8 +374,10 @@ fn main()  {
 	//let re = Regex::new(r"(?x)(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})").unwrap(); 
 	//let caps = re.captures("2010-03-14").unwrap();
 	//println!("{}", &caps["year"]);
-	let re = Regex::new(r"(?P<year>\w+):(?P<slashes>/?/?)(?P<site>[^\s]+/)").unwrap(); 
+	let re = Regex::new(r"(?P<scheme>\w+):(?:(?:(?P<url>//[.\w]+)(?:(/(?P<path>[/\w]+)?)?))|(?:(?P<method>\w+):(?P<id>\w+)))").unwrap(); 
 	let caps = re.captures(&schema_json.issuer).unwrap();
+	//let re = Regex::new(r"(?P<year>\w+):(?P<slashes>/?/?)(?P<site>[^\s]+/)").unwrap(); 
+	//let caps = re.captures(&schema_json.issuer).unwrap();
 	// FIXME capture the error and handle it.
 	//println!("{}", &caps["year"]);
 	//println!("{}", &caps["slashes"]);
@@ -319,11 +385,17 @@ fn main()  {
 	println!("    \"issuer\": \"{}\",", schema_json.issuer);
 	// we die on input parsing if this is not a string.
 
+
 	// issuance date
 	//2010-01-01T19:23:24Z
-	let issuance_date_re = Regex::new(r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})Z").unwrap(); 
-	let issuance_date_caps = issuance_date_re.captures(&schema_json.issuance_date).unwrap();
-	println!("    \"issuanceDate\": \"{}\",", schema_json.issuance_date);
+	if schema_json.issuance_date == "" {
+		panic!("Verifiable Credentials must contain an issuanceDate.");
+	} else {
+		let issuance_date_re = Regex::new(r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})Z").unwrap(); 
+		let issuance_date_caps = issuance_date_re.captures(&schema_json.issuance_date).unwrap();
+		println!("    \"issuanceDate\": \"{}\",", schema_json.issuance_date);
+	}
+
 
 	// expiration date
 	if schema_json.expiration_date != "" {
@@ -331,6 +403,7 @@ fn main()  {
 		let expiration_date_caps = expiration_date_re.captures(&schema_json.expiration_date).unwrap();
 		println!("    \"expirationDate\": \"{}\",", schema_json.expiration_date);
 	}
+
 
 	// credential status
 	//  "credentialStatus": {
@@ -353,7 +426,7 @@ fn main()  {
 	}
 
 
-// credential schema
+	// credential schema
 	//  "credentialSchema": {
     //		"id": "https://example.org/examples/degree.json",
     //		"type": "JsonSchemaValidator2018"
@@ -535,6 +608,24 @@ fn main()  {
 */
 }
 
+#[derive(Serialize, Deserialize)]
+pub enum CredentialType {
+      SingleType(String),
+      MultiType(Vec<String>)
+}
+
+pub fn missing_presentation_id() -> String {
+	return String::new();
+}
+
+pub fn missing_credential_id() -> String {
+	return String::new();
+}
+
+pub fn missing_credential_issuance_date() -> String {
+	return String::new();
+}
+
 pub fn missing_expiration_date() -> String {
 	return String::new();
 }
@@ -547,14 +638,19 @@ pub fn missing_credential_schema() -> serde_json::Value {
 	return json!(null);
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+
+//#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct RawPresentation {
 	#[serde(rename = "@context")]
 	presentation_context: Vec<serde_json::Value>,
 	#[serde(rename = "id")]
+	#[serde(default = "missing_presentation_id")]
 	presentation_id: String,
+	//#[serde(rename = "type")]
+	//presentation_type: CredentialType,
 	#[serde(rename = "type")]
-	presentation_type: Vec<String>,
+	presentation_type: serde_json::Value,
 	#[serde(rename = "verifiableCredential")]
 	verifiable_credential: Vec<RawSchema>,
 	#[serde(rename = "proof")]
@@ -565,11 +661,13 @@ struct RawPresentation {
 struct RawSchema {
 	#[serde(rename = "@context")]
 	context: Vec<serde_json::Value>,
+	#[serde(default = "missing_credential_id")]
 	id: String,
 	#[serde(rename = "type")]
 	credential_type: Vec<String>,
 	issuer: String,
 	#[serde(rename = "issuanceDate")]
+	#[serde(default = "missing_credential_issuance_date")]
 	issuance_date: String,
 	#[serde(rename = "expirationDate")]
 	#[serde(default = "missing_expiration_date")]
